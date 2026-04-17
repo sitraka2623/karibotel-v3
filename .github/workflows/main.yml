@@ -27,7 +27,9 @@ jobs:
       - name: 🏗️ Build Next.js Static Site
         run: |
           echo "Building Next.js static site..."
-          npm run build
+          echo "DATABASE_URL: ${{ secrets.DATABASE_URL }}"
+          echo "NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}"
+          npm run build 2>&1
           echo "Build completed successfully"
       - name: 📊 Verify build output
         run: |
