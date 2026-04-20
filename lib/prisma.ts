@@ -5,6 +5,10 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 const createPrismaClient = () => {
+  if (!process.env.DATABASE_URL) {
+    console.warn('DATABASE_URL not defined - using mock client')
+  }
+  
   return new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   })
