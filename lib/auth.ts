@@ -3,6 +3,8 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from './prisma'
 
+const NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || 'fallback-secret-do-not-use-in-production'
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -62,5 +64,5 @@ export const authOptions: NextAuthOptions = {
       return session
     },
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: NEXTAUTH_SECRET,
 }
