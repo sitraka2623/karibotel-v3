@@ -17,25 +17,25 @@ export async function GET() {
 
     // Calculer les stats
     const totalReservations = reservations.length
-    const reservationsConfirmees = reservations.filter(r => r.statut === 'confirmee').length
-    const reservationsEnCours = reservations.filter(r => r.statut === 'en_cours').length
-    const reservationsTerminees = reservations.filter(r => r.statut === 'terminee').length
+    const reservationsConfirmees = reservations.filter((r: any) => r.statut === 'confirmee').length
+    const reservationsEnCours = reservations.filter((r: any) => r.statut === 'en_cours').length
+    const reservationsTerminees = reservations.filter((r: any) => r.statut === 'terminee').length
 
     // Revenu total
-    const revenuTotal = reservations.reduce((sum, r) => sum + r.montantTotal, 0)
+    const revenuTotal = reservations.reduce((sum: number, r: any) => sum + r.montantTotal, 0)
 
     // Revenu du mois actuel
     const now = new Date()
     const debutMois = new Date(now.getFullYear(), now.getMonth(), 1)
     const revenuMoisActuel = reservations
-      .filter(r => new Date(r.createdAt) >= debutMois)
-      .reduce((sum, r) => sum + r.montantTotal, 0)
+      .filter((r: any) => new Date(r.createdAt) >= debutMois)
+      .reduce((sum: number, r: any) => sum + r.montantTotal, 0)
 
     // Chambres occupées (réservations en cours)
     const chambresOccupeesIds = new Set(
       reservations
-        .filter(r => r.statut === 'en_cours')
-        .map(r => r.chambreId)
+        .filter((r: any) => r.statut === 'en_cours')
+        .map((r: any) => r.chambreId)
     )
     const chambresOccupees = chambresOccupeesIds.size
     const chambresDisponibles = chambres.length - chambresOccupees
@@ -43,13 +43,13 @@ export async function GET() {
 
     // Top chambres
     const chambreCount: { [key: string]: number } = {}
-    reservations.forEach(r => {
+    reservations.forEach((r: any) => {
       const numero = r.chambre.numero
       chambreCount[numero] = (chambreCount[numero] || 0) + 1
     })
     const topChambres = Object.entries(chambreCount)
       .map(([numero, count]) => ({ numero, count }))
-      .sort((a, b) => b.count - a.count)
+      .sort((a: any, b: any) => b.count - a.count)
       .slice(0, 5)
 
     // Réservations par mois (6 derniers mois)
@@ -58,7 +58,7 @@ export async function GET() {
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
       const moisSuivant = new Date(now.getFullYear(), now.getMonth() - i + 1, 1)
-      const count = reservations.filter(r => {
+      const count = reservations.filter((r: any) => {
         const createdAt = new Date(r.createdAt)
         return createdAt >= date && createdAt < moisSuivant
       }).length

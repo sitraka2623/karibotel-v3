@@ -1,15 +1,20 @@
-import { PrismaClient } from '@prisma/client'
+let prismaInstance: any = null
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
+export const getPrismaClient = () => {
+  if (prismaInstance) return prismaInstance
+  
+  if (!process.env.DATABASE_URL) {
+    console.warn('DATABASE_URL not set - Prisma will fail at runtime')
+  }
+  
+  const { PrismaClient } = require('@prisma/client')
+  prismaInstance = new PrismaClient()
+  return prismaInstance
 }
 
-const createPrismaClient = () => {
-  return new PrismaClient()
-}
-
-export const prisma = globalForPrisma.prisma ?? createPrismaClient()
-
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma
-}
+export const prisma = new Proxy({} as any, {
+  get(_target, prop) {
+    const client = getPrismaClient()
+    return client[prop as string]
+  }
+})

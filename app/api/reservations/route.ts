@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     })
 
     if (conflits.length > 0) {
-      const periodesReservees = conflits.map((c) => ({
+      const periodesReservees = conflits.map((c: any) => ({
         du: new Date(c.dateArrivee).toLocaleDateString('fr-FR', {
           day: '2-digit',
           month: 'long',
