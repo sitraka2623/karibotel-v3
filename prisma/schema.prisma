@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL") != "" ? env("DATABASE_URL") : "mysql://root:@localhost:3306/karibotel"
+  url      = env("DATABASE_URL")
 }
 
 model Chambre {
