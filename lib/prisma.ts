@@ -14,7 +14,12 @@ export const getPrismaClient = () => {
 
 export const prisma = new Proxy({} as any, {
   get(_target, prop) {
+    if (prop === 'then' || prop === 'catch' || prop === 'finally') {
+      return undefined
+    }
     const client = getPrismaClient()
     return client[prop as string]
   }
 })
+
+export default prisma

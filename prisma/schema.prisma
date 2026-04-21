@@ -3,14 +3,14 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 model Chambre {
   id            String        @id @default(cuid())
   numero        String        @unique
-  description   String        @db.Text
+  description   String
   prix          Float
   disponible    Boolean       @default(true)
   photo         String?
@@ -52,11 +52,11 @@ model User {
 
 model Piscine {
   id          String   @id @default(cuid())
-  horaires    String   @db.Text
-  reglement   String   @db.Text
-  description String   @db.Text
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  horaires    String
+  reglement   String
+  description String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@map("piscine")
 }
