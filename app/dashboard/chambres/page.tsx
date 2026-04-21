@@ -1,0 +1,543 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import Image from 'next/image'
+import { FaEdit, FaTrash, FaPlus, FaArrowLeft, FaCalendar } from 'react-icons/fa'
+
+interface Chambre {
+  id: string
+  numero: string
+  description: string
+  prix: number
+  disponible: boolean
+  photo?: string
+}
+
+interface Reservation {
+  id: string
+  nom: string
+  email: string
+  telephone: string
+  dateArrivee: string
+  dateDepart: string
+  statut: string
+  montantTotal: number
+}
+
+export default function GestionChambresPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const [chambres, setChambres] = useState<Chambre[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [editingChambre, setEditingChambre] = useState<Chambre | null>(null)
+  const [showModal, setShowModal] = useState(false)
+  const [showPlanningModal, setShowPlanningModal] = useState(false)
+  const [selectedChambre, setSelectedChambre] = useState<Chambre | null>(null)
+  const [reservations, setReservations] = useState<Reservation[]>([])
+  const [loadingReservations, setLoadingReservations] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [chambreToDelete, setChambreToDelete] = useState<string | null>(null)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
+  const [showErrorModal, setShowErrorModal] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login')
+      return
+    }
+  }, [status, router])
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      loadChambres()
+    }
+  }, [status])
+
+  const loadChambres = async () => {
+    try {
+      const res = await fetch('/api/chambres')
+      const data = await res.json()
+      setChambres(data)
+    } catch (error) {
+      console.error('Erreur:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEdit = (chambre: Chambre) => {
+    setEditingChambre(chambre)
+    setShowModal(true)
+  }
+
+  const handleViewPlanning = async (chambre: Chambre) => {
+    setSelectedChambre(chambre)
+    setShowPlanningModal(true)
+    setLoadingReservations(true)
+
+    try {
+      const res = await fetch('/api/reservations')
+      const data = await res.json()
+      
+      // Filtrer les réservations pour cette chambre
+      const chambreReservations = data.filter(
+        (r: Reservation & { chambreId: string }) => r.chambreId === chambre.id
+      )
+      setReservations(chambreReservations)
+    } catch (error) {
+      console.error('Erreur:', error)
+    } finally {
+      setLoadingReservations(false)
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
+  }
+
+  const getStatutColor = (statut: string) => {
+    switch (statut) {
+      case 'confirmee':
+        return 'bg-green-100 text-green-800'
+      case 'en_cours':
+        return 'bg-blue-100 text-blue-800'
+      case 'terminee':
+        return 'bg-gray-100 text-gray-800'
+      case 'annulee':
+        return 'bg-red-100 text-red-800'
+      default:
+        return 'bg-yellow-100 text-yellow-800'
+    }
+  }
+
+  const handleDelete = (id: string) => {
+    setChambreToDelete(id)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!chambreToDelete) return
+
+    try {
+      const res = await fetch(`/api/chambres/${chambreToDelete}`, {
+        method: 'DELETE',
+      })
+
+      if (res.ok) {
+        loadChambres()
+        setShowDeleteModal(false)
+        setChambreToDelete(null)
+        setSuccessMessage('Chambre supprimée avec succès')
+        setShowSuccessModal(true)
+        setTimeout(() => setShowSuccessModal(false), 3000)
+      }
+    } catch (error) {
+      setShowDeleteModal(false)
+      setErrorMessage('Erreur lors de la suppression')
+      setShowErrorModal(true)
+    }
+  }
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingChambre || saving) return
+
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/chambres/${editingChambre.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          numero: editingChambre.numero,
+          description: editingChambre.description,
+          prix: editingChambre.prix,
+          photo: editingChambre.photo || null,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        await loadChambres()
+        setShowModal(false)
+        setEditingChambre(null)
+        setSuccessMessage('Chambre mise à jour avec succès')
+        setShowSuccessModal(true)
+        setTimeout(() => setShowSuccessModal(false), 3000)
+      } else {
+        console.error('Erreur API:', data)
+        setErrorMessage(data.error || 'Erreur lors de la mise à jour')
+        setShowErrorModal(true)
+      }
+    } catch (error) {
+      console.error('Erreur:', error)
+      setErrorMessage('Erreur lors de la mise à jour')
+      setShowErrorModal(true)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (status === 'loading' || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-2xl text-primary">Chargement...</div>
+      </div>
+    )
+  }
+
+  if (!session) return null
+
+  return (
+    <div className="max-w-7xl mx-auto">
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {chambres.map((chambre) => (
+            <div
+              key={chambre.id}
+              className="bg-white rounded-xl shadow-lg overflow-hidden"
+            >
+              <div className="relative h-48">
+                <Image
+                  src={chambre.photo || `/image/CHAMBRE${(parseInt(chambre.numero.slice(1)) % 7) + 1}.jpg`}
+                  alt={`Chambre ${chambre.numero}`}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <h3 className="text-2xl font-bold text-gray-800">
+                    Chambre {chambre.numero}
+                  </h3>
+                  <span
+                    className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                      chambre.disponible
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-orange-100 text-orange-800'
+                    }`}
+                  >
+                    {chambre.disponible ? 'Disponible' : 'Réservé'}
+                  </span>
+                </div>
+
+                <p className="text-gray-600 mb-4 line-clamp-2">
+                  {chambre.description}
+                </p>
+
+                <div className="text-2xl font-bold text-primary mb-4">
+                  {chambre.prix.toLocaleString()} Ar
+                  <span className="text-sm text-gray-500">/nuit</span>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleViewPlanning(chambre)}
+                    className="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <FaCalendar /> Planning
+                  </button>
+                  <button
+                    onClick={() => handleEdit(chambre)}
+                    className="flex-1 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors flex items-center justify-center gap-2"
+                  >
+                    <FaEdit /> Modifier
+                  </button>
+                  <button
+                    onClick={() => handleDelete(chambre.id)}
+                    className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors"
+                  >
+                    <FaTrash />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Modal Planning */}
+        {showPlanningModal && selectedChambre && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-3xl font-bold text-primary">
+                  Planning - Chambre {selectedChambre.numero}
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowPlanningModal(false)
+                    setSelectedChambre(null)
+                    setReservations([])
+                  }}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              {loadingReservations ? (
+                <div className="text-center py-8">
+                  <div className="text-xl text-gray-600">Chargement...</div>
+                </div>
+              ) : reservations.length === 0 ? (
+                <div className="text-center py-8">
+                  <FaCalendar className="text-6xl text-gray-300 mx-auto mb-4" />
+                  <p className="text-xl text-gray-600">
+                    Aucune réservation pour cette chambre
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {reservations.map((reservation) => (
+                    <div
+                      key={reservation.id}
+                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-800">
+                            {reservation.nom}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            {reservation.email}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {reservation.telephone}
+                          </p>
+                        </div>
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatutColor(
+                            reservation.statut
+                          )}`}
+                        >
+                          {reservation.statut.replace('_', ' ')}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 mb-3">
+                        <div>
+                          <p className="text-sm text-gray-500">Arrivée</p>
+                          <p className="font-semibold text-gray-800">
+                            {formatDate(reservation.dateArrivee)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Départ</p>
+                          <p className="font-semibold text-gray-800">
+                            {formatDate(reservation.dateDepart)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-primary">
+                          {reservation.montantTotal.toLocaleString()} Ar
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-6">
+                <button
+                  onClick={() => {
+                    setShowPlanningModal(false)
+                    setSelectedChambre(null)
+                    setReservations([])
+                  }}
+                  className="w-full bg-gray-300 text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
+                >
+                  Fermer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de modification */}
+        {showModal && editingChambre && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <h2 className="text-3xl font-bold text-primary mb-6">
+                Modifier Chambre {editingChambre.numero}
+              </h2>
+
+              <form onSubmit={handleSave} className="space-y-6">
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2">
+                    Numéro de Chambre
+                  </label>
+                  <input
+                    type="text"
+                    value={editingChambre.numero}
+                    onChange={(e) =>
+                      setEditingChambre({ ...editingChambre, numero: e.target.value })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    value={editingChambre.description}
+                    onChange={(e) =>
+                      setEditingChambre({
+                        ...editingChambre,
+                        description: e.target.value,
+                      })
+                    }
+                    rows={4}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2">
+                    Prix (Ariary)
+                  </label>
+                  <input
+                    type="number"
+                    value={editingChambre.prix}
+                    onChange={(e) =>
+                      setEditingChambre({
+                        ...editingChambre,
+                        prix: parseFloat(e.target.value),
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2">
+                    URL de la Photo
+                  </label>
+                  <input
+                    type="text"
+                    value={editingChambre.photo || ''}
+                    onChange={(e) =>
+                      setEditingChambre({ ...editingChambre, photo: e.target.value })
+                    }
+                    placeholder="/image/CHAMBRE1.jpg"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                </div>
+
+                <div className="flex gap-4">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="flex-1 bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {saving ? 'Enregistrement...' : 'Enregistrer'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModal(false)
+                      setEditingChambre(null)
+                    }}
+                    className="flex-1 bg-gray-300 text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Confirmation Suppression */}
+        {showDeleteModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
+              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FaTrash className="text-4xl text-red-500" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2 text-center">
+                Confirmer la suppression
+              </h3>
+              <p className="text-gray-600 mb-6 text-center">
+                Êtes-vous sûr de vouloir supprimer cette chambre ? Cette action est irréversible.
+              </p>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false)
+                    setChambreToDelete(null)
+                  }}
+                  className="flex-1 bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 bg-red-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-600 transition-colors"
+                >
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Succès */}
+        {showSuccessModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-5xl">✓</span>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                Succès !
+              </h3>
+              <p className="text-gray-600">
+                {successMessage}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Erreur */}
+        {showErrorModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
+              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-5xl">✕</span>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                Erreur
+              </h3>
+              <p className="text-gray-600 mb-6">
+                {errorMessage}
+              </p>
+              <button
+                onClick={() => setShowErrorModal(false)}
+                className="bg-primary text-white px-8 py-3 rounded-lg font-semibold hover:bg-primary-dark transition-colors"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        )}
+    </div>
+  )
+}
