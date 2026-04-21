@@ -43,4 +43,4 @@ jobs:
           port: 21
           # On déploie le contenu du dossier standalone généré par Next.js
           local-dir: ./.next/standalone/
-          server-dir: /public_html/karibotel.aris-cc.com/
+          server-dir: /
