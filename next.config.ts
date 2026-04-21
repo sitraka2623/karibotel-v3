@@ -1,19 +1,24 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // AJOUTE CETTE LIGNE : C'est elle qui crée le dossier 'out'
-  output: 'export', 
-  
+  /* On utilise 'standalone' au lieu de 'export'. 
+     Cela crée un dossier optimisé avec toutes les dépendances nécessaires 
+     pour tourner sur le serveur Node.js de cPanel.
+  */
+  output: 'standalone', 
+
   images: {
     remotePatterns: [],
-    unoptimized: true,
+    unoptimized: true, // Garde ceci à true pour éviter des problèmes de bibliothèques d'images manquantes sur le serveur
   },
+
+  // Optimisations pour la production
   compress: true,
   poweredByHeader: false,
-  
-  // Optionnel : Si tu déploies dans un sous-dossier (ex: /karibotel/), 
-  // décommente la ligne ci-dessous et ajuste le chemin
-  // basePath: '/karibotel',
+
+  /* Si ton site est accessible directement via karibotel.aris-cc.com, 
+     tu n'as pas besoin de basePath. 
+  */
 };
 
 export default nextConfig;

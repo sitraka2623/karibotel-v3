@@ -1,16 +1,13 @@
-name: Deploy to cPanel via SSH/PM2
+name: Deploy Next.js to cPanel Node.js
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 jobs:
   build-and-deploy:
-    name: Build and Deploy to cPanel
     runs-on: ubuntu-latest
-
     steps:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
@@ -19,94 +16,31 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: 📦 Install dependencies
         run: npm ci
 
-      - name: 🏗️ Build Next.js Application
-        run: |
-          echo "Building Next.js application..."
-          npm run build 2>&1
+      - name: 🏗️ Build Next.js
+        run: npm run build
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
-          EMAIL_HOST: ${{ secrets.EMAIL_HOST }}
-          EMAIL_PORT: ${{ secrets.EMAIL_PORT }}
-          EMAIL_USER: ${{ secrets.EMAIL_USER }}
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          NEXTAUTH_URL: https://karibotel.aris-cc.com
+          NEXT_PUBLIC_API_URL: https://karibotel.aris-cc.com/api
 
-      - name: 📁 Verify build output
+      - name: 🚀 Prepare files for cPanel
+        # On déplace les fichiers statiques dans le dossier standalone pour que tout soit regroupé
         run: |
-          echo "==================================="
-          echo "Checking build output..."
-          echo "==================================="
-          if [ ! -d ".next" ]; then
-            echo "❌ ERROR: '.next' directory does not exist!"
-            exit 1
-          fi
-          echo "✅ Build output verified successfully"
+          cp -r .next/static .next/standalone/.next/static
+          cp -r public .next/standalone/public
 
-      - name: 🚀 Deploy to cPanel via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: 🚀 Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          password: ${{ secrets.SERVER_PASSWORD }}
-          port: ${{ secrets.SERVER_PORT || 22 }}
-          script: |
-            cd ${{ secrets.SERVER_APP_PATH }}
-            
-            # Pull latest code or upload files
-            # Option 1: If using git on server
-            # git pull origin master
-            
-            # Option 2: Upload files via rsync (recommended)
-            # This step is handled by GitHub Actions artifact upload
-            
-            # Install dependencies
-            npm ci --production
-            
-            # Restart PM2
-            pm2 restart karibotel || pm2 start npm --name "karibotel" -- start
-            
-            # Save PM2 state
-            pm2 save
-            
-            echo "✅ Deployment completed"
-            pm2 status
-
-      - name: 📦 Create deployment artifact
-        if: false  # Disable artifact creation (handled by SSH)
-        uses: actions/upload-artifact@v4
-        with:
-          name: nextjs-build
-          path: .next/
-          retention-days: 1
-
-      - name: ✅ Deployment Summary
-        if: success()
-        run: |
-          echo "==================================="
-          echo "✅ Deployment Successful!"
-          echo "==================================="
-          echo "🌐 Site URL: https://karibotel.aris-cc.com/"
-          echo "📅 Deployed at: $(date)"
-          echo "📝 Commit: ${{ github.sha }}"
-          echo "🌿 Branch: ${{ github.ref_name }}"
-          echo "==================================="
-
-      - name: ❌ Deployment Failed
-        if: failure()
-        run: |
-          echo "==================================="
-          echo "❌ Deployment Failed!"
-          echo "==================================="
-          echo "Please check:"
-          echo "1. GitHub Secrets are configured correctly"
-          echo "2. SSH credentials are valid"
-          echo "3. Server has Node.js and PM2 installed"
-          echo "4. Database URL is correct"
-          echo "==================================="
+          server: ${{ secrets.SERVER }}
+          username: ${{ secrets.FTP_NAME }}
+          password: ${{ secrets.FTP_PASS }}
+          port: 21
+          # On déploie le contenu du dossier standalone généré par Next.js
+          local-dir: ./.next/standalone/
+          server-dir: /public_html/karibotel.aris-cc.com/
